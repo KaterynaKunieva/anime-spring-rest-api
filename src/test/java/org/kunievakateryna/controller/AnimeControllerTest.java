@@ -12,6 +12,7 @@ import org.kunievakateryna.service.AuthorService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.http.MediaType;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.context.ActiveProfiles;
@@ -50,6 +51,9 @@ public class AnimeControllerTest {
     private AuthorRepository authorRepository;
 
     private UUID authorId;
+
+    @MockBean
+    private org.springframework.amqp.rabbit.core.RabbitTemplate rabbitTemplate;
 
     @BeforeEach
     void setUp() {

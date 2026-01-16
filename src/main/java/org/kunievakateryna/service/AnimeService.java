@@ -8,12 +8,16 @@ import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.kunievakateryna.config.RabbitConfig;
 import org.kunievakateryna.data.Anime;
 import org.kunievakateryna.data.Author;
 import org.kunievakateryna.dto.*;
 import org.kunievakateryna.exception.DuplicateRecordException;
 import org.kunievakateryna.repository.AnimeRepository;
 import org.kunievakateryna.repository.AuthorRepository;
+import org.springframework.amqp.rabbit.core.RabbitTemplate;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -32,11 +36,19 @@ import java.util.*;
  * Handles business logic for anime operations including CRUD, filtering, reporting and imports.
  */
 @Service
+@Slf4j
 @RequiredArgsConstructor
 public class AnimeService {
     private final AnimeRepository animeRepository;
     private final AuthorRepository authorRepository;
     private final ObjectMapper objectMapper;
+    private final RabbitTemplate rabbitTemplate;
+
+    @Value("${app.rabbitmq.email-queue}")
+    private String emailQueue;
+
+    @Value("${app.mail.admin-email}")
+    private String adminEmail;
 
     @PersistenceContext
     private EntityManager entityManager;
@@ -60,6 +72,7 @@ public class AnimeService {
 
         Anime anime = createAnime(animeSaveDto, author);
         Anime saved = animeRepository.save(anime);
+        sendNewAnimeEmail(saved);
         return convertToAnimeDto(saved);
     }
 
@@ -525,6 +538,36 @@ public class AnimeService {
             return "\"" + input.replace("\"", "\"\"") + "\"";
         }
         return input;
+    }
+
+    /**
+     * Sends email notification to admin about adding new anime.
+     *
+     * @param anime added anime.
+     */
+    private void sendNewAnimeEmail(Anime anime) {
+        String emailBody = String.format(
+                "New anime:%n" +
+                "Title:        %s%n" +
+                "Release Year: %d%n" +
+                "Score:        %s%n" +
+                "Author:       %s%n",
+                anime.getTitle(),
+                anime.getReleaseYear(),
+                anime.getScore(),
+                anime.getAuthor().getName()
+        );
+
+        EmailMessage message = EmailMessage.builder()
+                .recipient(adminEmail)
+                .subject("New Anime Notification")
+                .body(String.format(emailBody))
+                .build();
+        try {
+            rabbitTemplate.convertAndSend(RabbitConfig.EXCHANGE_EMAIL_NOTIFICATIONS, "", message);
+        } catch (Exception e) {
+            log.error("Failed to send RabbitMQ message: {}", e.getMessage());
+        }
     }
 
 }
