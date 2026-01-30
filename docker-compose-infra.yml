@@ -1,9 +1,24 @@
 services:
-  postgres:
-    image: postgres:16.2
+  postgres-db:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: anime
     ports:
       - "5432:5432"
-    environment:
-      - POSTGRES_USER=user
-      - POSTGRES_PASSWORD=123456789
-      - POSTGRES_DB=anime
+
+  anime-api:
+    build: .
+    ports:
+      - "8080:8080"
+    depends_on:
+      - postgres-db
+    environment: 
+      DB_HOST: postgres-db
+      DB_PORT: 5432
+      DB_NAME: anime
+      DB_USERNAME: user
+      DB_PASSWORD: password
+      SPRING_PROFILES_ACTIVE: prod
+      ADMIN_EMAIL: admin@animedomain.com
